@@ -1,0 +1,4 @@
+seed: 42
+experiment_name: "very_cool_experiment"
+model_config_path: "configs/models/xlm-roberta.yaml"
+data_config_path: "configs/data/big_data.yaml"

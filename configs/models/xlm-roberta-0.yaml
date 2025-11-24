@@ -1,0 +1,15 @@
+name: "xlm-roberta"
+tokenizer: ""
+max_token_len: 16000
+train_val_split: 0.8
+loss_function: "mse"
+train:
+  num_epochs: 5
+  batch_size: 16
+  optimizer:
+    type: "adamw"
+    lr: 2e-5
+    weight_decay: 0.01
+eval:
+  inser_here: "example_hyperparameter"
+metrics_dir: "outputs/"
