@@ -1,0 +1,26 @@
+# configs/debug_small.yaml
+seed: 123
+
+data:
+  dataset_name: "HuggingFaceH4/civil_comments"
+  text_field: "comment_text"
+  label_field: "toxicity"
+  max_length: 64        # shorter seq length for speed
+  text_transform: "none"
+
+model:
+  pretrained_name: "xlm-roberta-base"
+  num_labels: 2
+  task_type: "classification"
+
+train:
+  batch_size: 4         # VERY small batch for speed
+  num_epochs: 1         # Only 1 epoch to sanity-check
+  log_dir: "runs/debug_small"
+  output_dir: "outputs/debug_small"
+  max_grad_norm: 1.0
+
+optimizer:
+  type: "adamw"
+  lr: 5e-5              # slightly higher for fast movement
+  weight_decay: 0.0

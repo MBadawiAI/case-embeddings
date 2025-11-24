@@ -1,0 +1,14 @@
+transformers==4.45.1
+datasets==2.21.0
+tokenizers==0.20.0
+hydra-core==1.3.2
+
+accelerate==0.33.0
+evaluate==0.4.1
+
+tensorboard==2.17.0
+scikit-learn==1.5.1
+tqdm==4.66.5
+
+# Optional but recommended to avoid HF download SSL issues
+huggingface-hub==0.25.2

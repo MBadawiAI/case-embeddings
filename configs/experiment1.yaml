@@ -1,0 +1,26 @@
+# experiment1.yaml
+seed: 42
+
+data:
+  dataset_name: "HuggingFaceH4/civil_comments"
+  text_field: "comment_text"
+  label_field: "toxicity"
+  max_length: 256
+  text_transform: "none"    # "none" or "lower"
+
+model:
+  pretrained_name: "xlm-roberta-base"
+  num_labels: 2
+  task_type: "classification"
+
+train:
+  batch_size: 16
+  num_epochs: 3
+  log_dir: "runs/experiment1"
+  output_dir: "outputs/experiment1"
+  max_grad_norm: 1.0
+
+optimizer:
+  type: "adamw"
+  lr: 2e-5
+  weight_decay: 0.01
