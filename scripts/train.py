@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from src.data import load_dataset
 from src.models import build_model
-from src.loop import train_one_epoch, evaluate
+from src.loops import train_one_epoch, evaluate
 from src.utils import set_seed
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
@@ -15,9 +15,29 @@ def main(cfg: DictConfig):
 
     # Load dataset
     train_ds, val_ds = load_dataset(cfg)
-    train_loader = DataLoader(train_ds, batch_size=cfg.train.batch_size,
-                              shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=cfg.train.batch_size)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=cfg.train.batch_size,
+        shuffle=cfg.train.dataloader.shuffle,
+        num_workers=cfg.train.dataloader.num_workers,
+        pin_memory=cfg.train.dataloader.pin_memory,
+        persistent_workers=cfg.train.dataloader.persistent_workers,
+        drop_last=cfg.train.dataloader.drop_last,
+        prefetch_factor=(
+            cfg.train.dataloader.prefetch_factor
+            if cfg.train.dataloader.num_workers > 0
+            else None
+        ),
+    )
+
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=cfg.train.batch_size,
+        shuffle=False,
+        num_workers=cfg.train.dataloader.num_workers,
+        pin_memory=cfg.train.dataloader.pin_memory,
+    )
+
 
     # Build model
     model = build_model(cfg).to(device)

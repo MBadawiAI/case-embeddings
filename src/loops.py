@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 def train_one_epoch(model, loader, optimizer, device, epoch, writer, cfg):
     model.train()
@@ -6,7 +7,7 @@ def train_one_epoch(model, loader, optimizer, device, epoch, writer, cfg):
     total_correct = 0
     total_count = 0
 
-    for step, batch in enumerate(loader):
+    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch}")):
         batch = {k: v.to(device) for k, v in batch.items()}
 
         out = model(**batch)
@@ -39,7 +40,7 @@ def evaluate(model, loader, device, epoch, writer):
     total_correct = 0
     total_count = 0
 
-    for batch in loader:
+    for batch in tqdm(loader, desc="Evaluating"):
         batch = {k: v.to(device) for k, v in batch.items()}
         out = model(**batch)
         loss = out.loss
