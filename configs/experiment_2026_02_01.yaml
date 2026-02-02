@@ -1,0 +1,68 @@
+# ============================================================
+# Experiment metadata
+# ============================================================
+
+experiment_name: "civil_comments_xlmr_cosine_2026_02_01"
+
+seed: 123
+
+# ============================================================
+# Data
+# ============================================================
+
+data:
+  dataset_name: "google/civil_comments"
+  text_field: "text"
+  label_field: "toxicity"
+  max_length: 64
+  text_transform: "none"
+  max_samples: 16384
+
+# ============================================================
+# Model
+# ============================================================
+
+model:
+  pretrained_name: "xlm-roberta-base"
+  num_labels: 2
+  task_type: "classification"
+
+# ============================================================
+# Training
+# ============================================================
+
+train:
+  batch_size: 128
+  num_epochs: 5
+  max_grad_norm: 1.0
+
+  log_dir: "runs/${experiment_name}"
+  output_dir: "outputs/${experiment_name}"
+
+  dataloader:
+    shuffle: true
+    num_workers: 16          # Not SAFE for SentencePiece (unless 0)
+    pin_memory: true        # gated by CUDA in code
+    persistent_workers: true
+    drop_last: false
+    prefetch_factor: 2
+
+# ============================================================
+# Optimizer
+# ============================================================
+
+optimizer:
+  type: "adamw"
+  lr: 2e-5                 # stable for XLM-R
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# ============================================================
+# Scheduler
+# ============================================================
+
+scheduler:
+  type: "cosine"
+  warmup_ratio: 0.1
+  num_cycles: 0.5          # half cosine → smooth decay
