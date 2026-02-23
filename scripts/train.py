@@ -16,7 +16,7 @@ from src.utils import set_seed
 
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
-def main(cfg: DictConfig, num_gpus="3"):
+def main(cfg: DictConfig):
     # ------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------
@@ -55,19 +55,9 @@ def main(cfg: DictConfig, num_gpus="3"):
     # ------------------------------------------------------------
     # Build model using DDP
     # ------------------------------------------------------------
-    os.environ["LOCAL_RANK"] = num_gpus
-    torch.accelerator.set_device_index(int(os.environ["LOCAL_RANK"]))
-    acc = torch.accelerator.current_accelerator()
-    if acc is None:
-        raise RuntimeError("no accelerator available")
-    backend = torch.distributed.get_default_backend_for_device(acc)
-    dist.init_process_group(backend)
-    rank = dist.get_rank()
-    print(f"Start running DDP model training and eval on rank {rank}.")
-    # create model and move it to GPU with id rank
-    device_id = rank % torch.accelerator.device_count()
-    model = build_model(cfg).to(device_id)
-    model = DDP(model, device_ids=[device_id])
+    rank, world_size, device = setup()
+    model = build_model(cfg).to(device)
+    model = DDP(model, device_ids=[device.index])
 
     # ------------------------------------------------------------
     # Optimizer
@@ -116,7 +106,7 @@ def main(cfg: DictConfig, num_gpus="3"):
             loader=train_loader,
             optimizer=optimizer,
             scheduler=scheduler,
-            device=device_id,
+            device=device,
             epoch=epoch,
             writer=writer,
             cfg=cfg,
@@ -125,7 +115,7 @@ def main(cfg: DictConfig, num_gpus="3"):
         val_loss, val_acc = evaluate(
             model=model,
             loader=val_loader,
-            device=device_id,
+            device=device,
             epoch=epoch,
             writer=writer,
         )
@@ -139,27 +129,22 @@ def main(cfg: DictConfig, num_gpus="3"):
 
     writer.close()
 
-# def demo_basic():
-#     torch.accelerator.set_device_index(int(os.environ["LOCAL_RANK"]))
-#     acc = torch.accelerator.current_accelerator()
-#     backend = torch.distributed.get_default_backend_for_device(acc)
-#     dist.init_process_group(backend)
-#     rank = dist.get_rank()
-#     print(f"Start running basic DDP example on rank {rank}.")
-#     # create model and move it to GPU with id rank
-#     device_id = rank % torch.accelerator.device_count()
-#     model = ToyModel().to(device_id)
-#     ddp_model = DDP(model, device_ids=[device_id])
-#     loss_fn = nn.MSELoss()
-#     optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
+def setup():
+    dist.init_process_group(backend=os.environ.get("BACKEND", "gloo"))
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
 
-#     optimizer.zero_grad()
-#     outputs = ddp_model(torch.randn(20, 10))
-#     labels = torch.randn(20, 5).to(device_id)
-#     loss_fn(outputs, labels).backward()
-#     optimizer.step()
-#     dist.destroy_process_group()
-#     print(f"Finished running basic DDP example on rank {rank}.")
+    if torch.cuda.is_available():
+        local_rank = int(os.environ["LOCAL_RANK"])
+        device = torch.device("cuda", local_rank)
+        torch.cuda.set_device(device)
+    else:
+        device = torch.device("cpu")
+
+    return rank, world_size, device
+
+def cleanup():
+    dist.destroy_process_group()
 
 if __name__ == "__main__":
     main()
