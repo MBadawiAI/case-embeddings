@@ -1,0 +1,25 @@
+seed: 42
+
+data:
+  dataset_name: "HuggingFaceH4/civil_comments"
+  text_field: "comment_text"
+  label_field: "toxicity"
+  max_length: 256
+  text_transform: "none"   # KEEP CASES
+
+model:
+  pretrained_name: "xlm-roberta-base"
+  num_labels: 2
+  task_type: "classification"
+
+train:
+  batch_size: 16
+  num_epochs: 3
+  log_dir: "runs/baseline_case_sensitive"
+  output_dir: "outputs/baseline_case_sensitive"
+  max_grad_norm: 1.0
+
+optimizer:
+  type: "adamw"
+  lr: 2e-5
+  weight_decay: 0.01

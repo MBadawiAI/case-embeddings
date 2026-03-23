@@ -1,0 +1,35 @@
+# configs/debug_small.yaml
+seed: 123
+
+data:
+  dataset_name: "google/civil_comments"
+  text_field: "text"
+  label_field: "toxicity"
+  max_length: 64
+  text_transform: "none"
+  max_samples: 1024
+
+model:
+  pretrained_name: "xlm-roberta-base"
+  num_labels: 2
+  task_type: "classification"
+
+train:
+  batch_size: 16
+  num_epochs: 1
+  log_dir: "runs/debug_small"
+  output_dir: "outputs/debug_small"
+  max_grad_norm: 1.0
+
+  dataloader:
+    shuffle: true
+    num_workers: 4          # not safe unless 0 for sentencepiece apparently (XLM Roberta)
+    pin_memory: true
+    persistent_workers: false
+    drop_last: false
+    prefetch_factor: 2
+
+optimizer:
+  type: "adamw"
+  lr: 5e-5              # slightly higher for fast movement
+  weight_decay: 0.0
