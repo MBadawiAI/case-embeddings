@@ -61,7 +61,7 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------
     # Build model using DDP
     # ------------------------------------------------------------
-    rank, world_size, device = setup()
+    # rank, world_size, device = setup()
     model = build_model(cfg).to(device)
     model = DDP(model, device_ids=[device.index], output_device=device)
 
