@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from transformers import get_cosine_schedule_with_warmup
 
-from src.data import load_dataset
+from src.data import load_dataset, pad_collate_fn
 from src.models import build_model
 from src.loops import train_one_epoch, evaluate
 from src.utils import set_seed
@@ -48,6 +48,7 @@ def main(cfg: DictConfig):
             else None
         ),
         sampler=train_sampler,  # Use the sampler
+        collate_fn = pad_collate_fn
     )
 
     val_loader = DataLoader(
@@ -56,6 +57,7 @@ def main(cfg: DictConfig):
         shuffle=False,
         num_workers=cfg.train.dataloader.num_workers,
         pin_memory=cfg.train.dataloader.pin_memory and use_cuda,
+        collate_fn = pad_collate_fn
     )
 
     # ------------------------------------------------------------
@@ -120,25 +122,26 @@ def main(cfg: DictConfig):
             cfg=cfg,
         )
 
-        val_loss, val_acc = evaluate(
-            model=model,
-            loader=val_loader,
-            device=device,
-            epoch=epoch,
-            writer=writer,
-        )
+        if rank == 0:
+            val_loss, val_acc = evaluate(
+                model=model,
+                loader=val_loader,
+                device=device,
+                epoch=epoch,
+                writer=writer,
+            )
 
-        print(
-            f"Train loss: {train_loss:.4f} | "
-            f"Train acc: {train_acc:.4f} | "
-            f"Val loss: {val_loss:.4f} | "
-            f"Val acc: {val_acc:.4f}"
-        )
+            print(
+                f"Train loss: {train_loss:.4f} | "
+                f"Train acc: {train_acc:.4f} | "
+                f"Val loss: {val_loss:.4f} | "
+                f"Val acc: {val_acc:.4f}"
+            )
 
     writer.close()
 
 def setup():
-    dist.init_process_group(backend=os.environ.get("BACKEND", "gloo"))
+    dist.init_process_group(backend=os.environ.get("BACKEND", "nccl"))
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
