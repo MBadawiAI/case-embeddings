@@ -13,7 +13,7 @@ from src.data import load_dataset, pad_collate_fn
 from src.models import build_model
 from src.loops import train_one_epoch, evaluate
 from src.utils import set_seed
-
+from src.losses import parse_loss_function
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
@@ -28,6 +28,7 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------
     train_ds, val_ds = load_dataset(cfg)
     rank, world_size, device = setup()
+    criterion = parse_loss_function(cfg.loss, device)
 
     # Setup DistributedSampler for training dataset
     train_sampler = DistributedSampler(
@@ -120,15 +121,22 @@ def main(cfg: DictConfig):
             epoch=epoch,
             writer=writer,
             cfg=cfg,
+            criterion=criterion
         )
 
+        print(f"[rank {rank}] waiting before eval")
+
+        dist.barrier()
         if rank == 0:
+            print(f"[rank {rank}] entering eval on device {device}")
+            eval_model = model.module if isinstance(model, DDP) else model
             val_loss, val_acc = evaluate(
-                model=model,
+                model=eval_model,
                 loader=val_loader,
                 device=device,
                 epoch=epoch,
                 writer=writer,
+                criterion=criterion
             )
 
             print(
@@ -137,6 +145,9 @@ def main(cfg: DictConfig):
                 f"Val loss: {val_loss:.4f} | "
                 f"Val acc: {val_acc:.4f}"
             )
+
+        print(f"[rank {rank}] waiting after eval")
+        dist.barrier()
 
     writer.close()
 
