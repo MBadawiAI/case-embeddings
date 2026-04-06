@@ -9,11 +9,11 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from transformers import get_cosine_schedule_with_warmup
 
-from src.data import load_dataset
+from src.data import load_dataset, pad_collate_fn
 from src.models import build_model
 from src.loops import train_one_epoch, evaluate
 from src.utils import set_seed
-
+from src.losses import parse_loss_function
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
@@ -28,6 +28,7 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------
     train_ds, val_ds = load_dataset(cfg)
     rank, world_size, device = setup()
+    criterion = parse_loss_function(cfg.loss, device)
 
     # Setup DistributedSampler for training dataset
     train_sampler = DistributedSampler(
@@ -48,6 +49,7 @@ def main(cfg: DictConfig):
             else None
         ),
         sampler=train_sampler,  # Use the sampler
+        collate_fn = pad_collate_fn
     )
 
     val_loader = DataLoader(
@@ -56,12 +58,13 @@ def main(cfg: DictConfig):
         shuffle=False,
         num_workers=cfg.train.dataloader.num_workers,
         pin_memory=cfg.train.dataloader.pin_memory and use_cuda,
+        collate_fn = pad_collate_fn
     )
 
     # ------------------------------------------------------------
     # Build model using DDP
     # ------------------------------------------------------------
-    rank, world_size, device = setup()
+    # rank, world_size, device = setup()
     model = build_model(cfg).to(device)
     model = DDP(model, device_ids=[device.index], output_device=device)
 
@@ -118,27 +121,38 @@ def main(cfg: DictConfig):
             epoch=epoch,
             writer=writer,
             cfg=cfg,
+            criterion=criterion
         )
 
-        val_loss, val_acc = evaluate(
-            model=model,
-            loader=val_loader,
-            device=device,
-            epoch=epoch,
-            writer=writer,
-        )
+        print(f"[rank {rank}] waiting before eval")
 
-        print(
-            f"Train loss: {train_loss:.4f} | "
-            f"Train acc: {train_acc:.4f} | "
-            f"Val loss: {val_loss:.4f} | "
-            f"Val acc: {val_acc:.4f}"
-        )
+        dist.barrier()
+        if rank == 0:
+            print(f"[rank {rank}] entering eval on device {device}")
+            eval_model = model.module if isinstance(model, DDP) else model
+            val_loss, val_acc = evaluate(
+                model=eval_model,
+                loader=val_loader,
+                device=device,
+                epoch=epoch,
+                writer=writer,
+                criterion=criterion
+            )
+
+            print(
+                f"Train loss: {train_loss:.4f} | "
+                f"Train acc: {train_acc:.4f} | "
+                f"Val loss: {val_loss:.4f} | "
+                f"Val acc: {val_acc:.4f}"
+            )
+
+        print(f"[rank {rank}] waiting after eval")
+        dist.barrier()
 
     writer.close()
 
 def setup():
-    dist.init_process_group(backend=os.environ.get("BACKEND", "gloo"))
+    dist.init_process_group(backend=os.environ.get("BACKEND", "nccl"))
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
